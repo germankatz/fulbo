@@ -35,8 +35,12 @@ Activa el entorno virtual según tu sistema operativo:
 ---
 
 ### **3. Instalar las dependencias**
+Si su placa de video es compatible puede instalar CUDA para agilizar el procesamiento:
+```bash
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+```
 
-Con el entorno virtual activo, instala las dependencias especificadas en el archivo `requirements.txt`:
+Luego, ya con el entorno virtual activo, instala las dependencias especificadas en el archivo `requirements.txt`:
 
 ```bash
 pip install -r requirements.txt
