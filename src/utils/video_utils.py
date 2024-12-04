@@ -24,6 +24,18 @@ def read_video(video_path):
     cap.release()
     return frames
 
+def get_first_frame(video_path):
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"No se pudo abrir el video en la ruta: {video_path}")
+
+    ret, frame = cap.read()
+    if not ret:
+        raise ValueError("No se pudo leer el primer frame del video.")
+    
+    cap.release()
+    return frame
+
 def save_video(ouput_video_frames,output_video_path):
     if not ouput_video_frames:
         raise ValueError("La lista de frames está vacía, no se puede guardar el video.")
