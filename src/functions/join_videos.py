@@ -160,22 +160,18 @@ class JoinVideos:
         """
         if not frames or len(frames) == 0:
             raise ValueError("No frames provided to save the video.")
-
-        # Validate dimensions of all frames
+        
+        # Get dimensions from the first frame
         height, width, _ = frames[0].shape
-        for i, frame in enumerate(frames):
-            if frame.shape != (height, width, 3):
-                raise ValueError(f"Frame {i} has a different size: {frame.shape}. All frames must have the same size.")
 
         # Initialize VideoWriter
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
-        # Write frames
         for i, frame in enumerate(frames):
-            if frame is None:
-                print(f"Skipping invalid frame at index {i}")
-                continue
+            if frame.shape != (height, width, 3):
+                print(f"Resizing frame {i} from {frame.shape} to {(height, width, 3)}")
+                frame = cv2.resize(frame, (width, height))  # Resize frame to match dimensions
             out.write(frame)
 
         out.release()
