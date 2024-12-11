@@ -1,6 +1,7 @@
 import sys
 import os
 import numpy as np
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
 
@@ -124,6 +125,9 @@ class JoinVideos:
 
             panorama, _ = blender.blend()
             stitched_frames.append(panorama)
+
+            # Display stitched frame
+            self.plot_image(panorama, figsize_in_inches=(10, 5))
 
         print("Stitching completed for all frames.")
         return stitched_frames
