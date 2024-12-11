@@ -19,7 +19,7 @@ def detect_with_YOLO(frame):
     return detection
 
 if __name__ == "__main__":
-    video_path = "C:/Users/germa/Documents/Facultad/PFC/desarrollo/fulbo/data/temp/david.MOV"
+    video_path = "C:/Users/germa/Documents/Facultad/PFC/desarrollo/fulbo/data/temp/izquierda_sync_trim.mp4"
 
     
     # Select ROI
@@ -54,15 +54,20 @@ if __name__ == "__main__":
     # Find id of player with most detections
     player_id = max(tracked_data, key=lambda k: len(tracked_data[k]))
 
-    heatmap, transformed_positions, H = process.process_tracked_data(tracked_data, points, player_id)
+    # Find id of second player with most detections
+    # player_id = max(tracked_data, key=lambda k: len(tracked_data[k]) if k != player_id else 0)
 
-    plt.figure(figsize=(8, 12))  # Ajusta el tamaño de la figura (ancho x alto)
-    plt.imshow(heatmap, origin='lower', cmap='hot', aspect='auto')
-    plt.colorbar(label='Densidad de Presencia')
-    plt.title("Mapa de Calor del Jugador en la Cancha")
-    plt.xlabel("Eje X (ancho, en metros)")
-    plt.ylabel("Eje Y (largo, en metros)")
-    plt.show()
+    heatmap, transformed_positions, H = process.process_tracked_data(tracked_data, points, player_id)
+    
+    # Print quantity of players
+    print(f"Se han detectado {len(tracked_data)} jugadores en el video.")
+
+    # Plot heatmap
+    process.plot_heatmap(heatmap)
+
+    # Draw selected player box
+    process.draw_player_box(video_path, tracked_data, player_id)
+
 
 
     # video = read_video(video_path)

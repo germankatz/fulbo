@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import matplotlib.patches as patches
+
 
 class Process:
     def __init__(self, field_width=68, field_length=105):
@@ -119,13 +121,19 @@ class Process:
 
         return heatmap, transformed_positions, H
 
+    
+    
+    
     def plot_heatmap(self, heatmap):
         """
-        Plotea un mapa de calor sobre un esquema de cancha.
+        Plotea un mapa de calor sobre un esquema de cancha con orientación vertical.
 
         heatmap: arreglo 2D del mapa de calor.
         """
         cmap = mcolors.LinearSegmentedColormap.from_list('field_cmap', ['green', 'yellow', 'red'])
+
+        # Espejar el mapa de calor en el eje X
+        heatmap = np.fliplr(heatmap)  # Espejar el mapa de calor horizontalmente
 
         plt.figure(figsize=(8, 12))
         plt.imshow(
@@ -133,10 +141,142 @@ class Process:
             origin='lower',
             cmap=cmap,
             aspect='equal',
-            extent=[0, self.field_width, 0, self.field_length]
+            extent=[0, self.field_width, 0, self.field_length]  # Ancho es X, largo es Y
         )
+
+        # Dibujar líneas de la cancha
+        field_color = 'white'
+        line_width = 2
+
+        # Bordes del campo
+        plt.plot([0, self.field_width], [0, 0], color=field_color, lw=line_width)  # Línea inferior
+        plt.plot([0, self.field_width], [self.field_length, self.field_length], color=field_color, lw=line_width)  # Línea superior
+        plt.plot([0, 0], [0, self.field_length], color=field_color, lw=line_width)  # Línea izquierda
+        plt.plot([self.field_width, self.field_width], [0, self.field_length], color=field_color, lw=line_width)  # Línea derecha
+
+        # Línea de mitad de campo
+        plt.plot([0, self.field_width], [self.field_length / 2, self.field_length / 2], color=field_color, lw=line_width)
+
+        # Círculo central
+        center_circle_radius = 9.15  # Radio estándar en metros
+        center = (self.field_width / 2, self.field_length / 2)
+        circle = plt.Circle(center, center_circle_radius, color=field_color, fill=False, lw=line_width)
+        plt.gca().add_artist(circle)
+
+        # Punto central
+        plt.plot(center[0], center[1], 'o', color=field_color)
+
+        # Áreas grandes (16.5 m desde la línea de gol)
+        area_width = 40.3  # Ancho del área grande (en el eje X)
+        area_height = 16.5  # Profundidad del área grande (en el eje Y)
+
+        # Área grande superior
+        plt.plot(
+            [self.field_width / 2 - area_width / 2, self.field_width / 2 + area_width / 2],
+            [self.field_length - area_height, self.field_length - area_height],
+            color=field_color, lw=line_width
+        )  # Línea horizontal inferior del área superior
+        plt.plot(
+            [self.field_width / 2 - area_width / 2, self.field_width / 2 - area_width / 2],
+            [self.field_length, self.field_length - area_height],
+            color=field_color, lw=line_width
+        )  # Línea vertical izquierda del área superior
+        plt.plot(
+            [self.field_width / 2 + area_width / 2, self.field_width / 2 + area_width / 2],
+            [self.field_length, self.field_length - area_height],
+            color=field_color, lw=line_width
+        )  # Línea vertical derecha del área superior
+
+        # Área grande inferior
+        plt.plot(
+            [self.field_width / 2 - area_width / 2, self.field_width / 2 + area_width / 2],
+            [area_height, area_height],
+            color=field_color, lw=line_width
+        )  # Línea horizontal superior del área inferior
+        plt.plot(
+            [self.field_width / 2 - area_width / 2, self.field_width / 2 - area_width / 2],
+            [0, area_height],
+            color=field_color, lw=line_width
+        )  # Línea vertical izquierda del área inferior
+        plt.plot(
+            [self.field_width / 2 + area_width / 2, self.field_width / 2 + area_width / 2],
+            [0, area_height],
+            color=field_color, lw=line_width
+        )  # Línea vertical derecha del área inferior
+
+        # Arcos (puntos de penalti y semicírculos)
+        penalty_spot_distance = 11  # Distancia del punto de penalti a la línea de gol
+        arc_radius = 9.15  # Radio del semicírculo fuera del área grande
+
+        # Puntos de penalti
+        plt.plot(self.field_width / 2, penalty_spot_distance, 'o', color=field_color)
+        plt.plot(self.field_width / 2, self.field_length - penalty_spot_distance, 'o', color=field_color)
+
+        
+        # Semicírculo superior
+        top_arc = patches.Arc(
+            (self.field_width / 2, self.field_length - area_height),
+            arc_radius * 2,  # Ancho del arco
+            arc_radius * 2,  # Alto del arco
+            angle=0,  # Sin rotación
+            theta1=180,  # Comienza desde la izquierda
+            theta2=360,  # Termina en la derecha
+            color=field_color,
+            lw=line_width
+        )
+        plt.gca().add_patch(top_arc)
+
+        # Semicírculo inferior
+        bottom_arc = patches.Arc(
+            (self.field_width / 2, area_height),
+            arc_radius * 2,  # Ancho del arco
+            arc_radius * 2,  # Alto del arco
+            angle=0,  # Sin rotación
+            theta1=0,  # Comienza desde la derecha
+            theta2=180,  # Termina en la izquierda
+            color=field_color,
+            lw=line_width
+        )
+        plt.gca().add_patch(bottom_arc)
+
+        # Mostrar mapa de calor con las líneas de la cancha
         plt.colorbar(label='Densidad de Presencia')
         plt.title("Mapa de Calor del Jugador en la Cancha")
         plt.xlabel("Ancho de la cancha (m)")
         plt.ylabel("Largo de la cancha (m)")
+        plt.axis('off')  # Opcional: Quita los ejes si no quieres números en los bordes
         plt.show()
+
+    def draw_player_box(self, video_path, tracked_data, player_id):
+        cap = cv2.VideoCapture(video_path)
+
+        while True:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Reinicia el video al inicio
+            frame_idx = 0
+
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break  # Salir del bucle interno si se termina el video
+
+                # Buscar datos para el frame actual
+                player_data = tracked_data[player_id]
+                for entry in player_data:
+                    if entry['frame'] == frame_idx:
+                        x1, y1, x2, y2 = int(entry['x1']), int(entry['y1']), int(entry['x2']), int(entry['y2'])
+                        # Dibujar el rectángulo y texto
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                        cv2.putText(frame, f"Track ID: {player_id}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                        break  # Salir del bucle si encontramos el box para este frame
+
+                # Mostrar el frame
+                cv2.imshow("Player Tracking", frame)
+
+                # Salir si se presiona la tecla 'q'
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    cap.release()
+                    cv2.destroyAllWindows()
+                    return
+
+                frame_idx += 1
+
