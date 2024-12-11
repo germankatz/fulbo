@@ -25,6 +25,7 @@ def read_video(video_path):
     return frames
 
 def get_first_frame(video_path):
+    # video_path = "C:/Users/agusr/OneDrive/Escritorio/Íconos/Ordenado/Formación/Ing. en Informática/PFC/Informe final/fulbo/data/temp/23/left.mp4"
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         raise ValueError(f"No se pudo abrir el video en la ruta: {video_path}")

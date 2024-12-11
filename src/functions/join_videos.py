@@ -1,105 +1,193 @@
 import sys
 import os
-
+import numpy as np
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
-from src.utils import read_video, get_first_frame, save_video	
+
+from stitching.images import Images  # Importing Images class
+from src.utils import read_video, get_first_frame, save_video
 from stitching import Stitcher
+from stitching.images import Images
 from stitching.feature_detector import FeatureDetector
+from stitching.feature_matcher import FeatureMatcher  # Add this line
+from stitching.camera_estimator import CameraEstimator
+from stitching.camera_adjuster import CameraAdjuster
+from stitching.camera_wave_corrector import WaveCorrector
+from stitching.warper import Warper
+from stitching.cropper import Cropper
+from stitching.blender import Blender
 import cv2
+
+from stitching.feature_matcher import FeatureMatcher  # Add this line
 import matplotlib.pyplot as plt
 
 
 class JoinVideos:
-    def __init__(self, video1, video2, is_video=False):
+    def __init__(self, path_video_1, path_video_2, is_video=False):
         """
         Parameters
         ----------
-        video1 : str
+        path_video_1 : str
             Path to the first video.
-        video2 : str
+        path_video_2 : str
             Path to the second video.
         is_video : bool, optional
-            If True, the input is a video, if False, the input is a frame. The default is False.
+            If True, the input is a video; if False, the input is a frame. Default is False.
         """
-
-        self.video1 = video1
-        self.video2 = video2
+        self.path_video_1 = path_video_1
+        self.path_video_2 = path_video_2
         self.is_video = is_video
         
         if self.is_video:
-            video1 = read_video(self.video1)
-            video2 = read_video(self.video2)
+            self.video_1 = read_video(self.path_video_1)
+            self.video_2 = read_video(self.path_video_2)
             
-            # Check if the videos have the same length, if not trim the longest one
-            if len(video1) > len(video2):
-                video1 = video1[:len(video2)]
-            elif len(video2) > len(video1):
-                video2 = video2[:len(video1)]
+            # Ensure videos have the same length by trimming the longer one
+            if len(self.video_1) > len(self.video_2):
+                self.video_1 = self.video_1[:len(self.video_2)]
+            elif len(self.video_2) > len(self.video_1):
+                self.video_2 = self.video_2[:len(self.video_1)]
         
-        self.frame1 = get_first_frame(self.video1)
-        self.frame2 = get_first_frame(self.video2)
+        self.frame_1 = get_first_frame(self.path_video_1)
+        self.frame_2 = get_first_frame(self.path_video_2)
 
-    
+
     def join(self, threshold=0.1, detector="sift"):
         """
-        Join two videos.
+        Stitch all frames from two videos.
+
+        Parameters
+        ----------
+        threshold : float
+            Threshold for feature matching (default: 0.1).
+        detector : str
+            Feature detector to use (default: "sift").
+
+        Returns
+        -------
+        list
+            List of stitched frames.
         """
-        images = []
-        images.append(self.frame1)
-        images.append(self.frame2)
+        if not self.is_video:
+            raise ValueError("Stitching requires video input. Set `is_video=True` when initializing.")
 
-        # plot images in one figure
-        fig, axs = plt.subplots(1, len(images),figsize=(5,5))
-        for col, img in enumerate(images):
-            axs[col].imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))        
-        plt.show()
-        cv2.waitKey(0)
-
-
-
+        stitched_frames = []
         stitcher = Stitcher()
-        panorama = stitcher.stitch(images)
 
-        # Plot panorama
-        cv2.imshow("Panorama", panorama)
-        cv2.waitKey(0)
+        for i in range(len(self.video_1)):
+            print(f"Processing frame {i + 1}/{len(self.video_1)}")
+            frame_1 = self.video_1[i]
+            frame_2 = self.video_2[i]
 
-        return panorama
-    
+            images = [frame_1, frame_2]
+
+            # Convert images for stitching
+            images = Images.of(images)
+
+            # Resize images
+            medium_imgs = list(images.resize(Images.Resolution.MEDIUM))
+            low_imgs = list(images.resize(Images.Resolution.LOW))
+            final_imgs = list(images.resize(Images.Resolution.FINAL))
+
+            # Feature detection
+            finder = FeatureDetector()
+            features = [finder.detect_features(img) for img in medium_imgs]
+
+            # Match features
+            matcher = FeatureMatcher()
+            matches = matcher.match_features(features)
+
+            # Camera estimation
+            camera_estimator = CameraEstimator()
+            camera_adjuster = CameraAdjuster()
+            wave_corrector = WaveCorrector()
+
+            cameras = camera_estimator.estimate(features, matches)
+            cameras = camera_adjuster.adjust(features, matches, cameras)
+            cameras = wave_corrector.correct(cameras)
+
+            # Warp images
+            warper = Warper(warper_type='transverseMercator')
+            warper.set_scale(cameras)
+
+            final_sizes = images.get_scaled_img_sizes(Images.Resolution.FINAL)
+            camera_aspect = images.get_ratio(Images.Resolution.MEDIUM, Images.Resolution.FINAL)
+            warped_final_imgs = list(warper.warp_images(final_imgs, cameras, camera_aspect))
+            warped_final_masks = list(warper.create_and_warp_masks(final_sizes, cameras, camera_aspect))
+            final_corners, final_sizes = warper.warp_rois(final_sizes, cameras, camera_aspect)
+
+            # Join images
+            blender = Blender()
+            blender.prepare(final_corners, final_sizes)
+            for img, mask, corner in zip(warped_final_imgs, warped_final_masks, final_corners):
+                blender.feed(img, mask, corner)
+
+            panorama, _ = blender.blend()
+            stitched_frames.append(panorama)
+
+        print("Stitching completed for all frames.")
+        return stitched_frames
+
+
+
     def swap(self):
         """
-        Swap the videos and the frames.
+        Swap the videos and their first frames.
         """
-        self.video1, self.video2 = self.video2, self.video1
-        self.frame1, self.frame2 = self.frame2, self.frame1
-    
-    # def extract_features(self):
-    #     """
-    #     Extract features from the videos.
-    #     """
+        self.video_1, self.video_2 = self.video_2, self.video_1
+        self.frame_1, self.frame_2 = self.frame_2, self.frame_1
 
-    #     finder = FeatureDetector()
+    def extract_features(self):
+        """
+        Extract features from the videos' middle frames using FeatureDetector.
+        """
+        finder = FeatureDetector()
         
+        # Use middle frames for feature extraction
+        middle_idx = len(self.video_1) // 2
+        frame_1 = self.video_1[middle_idx]
+        frame_2 = self.video_2[middle_idx]
 
-    #     # Search for features only in middle part of the image
-    #     height, width, _ = self.frame1.shape
-    #     width_cutoff = width // 2
-    #     features_img = []
-    #     for index, img in enumerate(final_imgs):
-    #         # select middle part of the image left in x for the first and right for the second
-    #         if index == 0:
-    #             img_trim = img[:, :width_cutoff]
-    #         else:
-    #             img_trim = img[:, width_cutoff:]
-    #         features_img.append(finder.detect_features(img_trim))
+        # Detect features
+        features_1 = finder.detect_features(frame_1)
+        features_2 = finder.detect_features(frame_2)
+        
+        # Draw keypoints on frames
+        keypoints_frame_1 = finder.draw_keypoints(frame_1, features_1)
+        keypoints_frame_2 = finder.draw_keypoints(frame_2, features_2)
 
-    #     # features = [finder.detect_features(img) for img in final_imgs]
-    #     # For every keypoint add width_cutoff to x coordinate
-    #     for index, feature in enumerate(features_img):
-    #         kpoints = feature.keypoints
-    #         for kpoint in kpoints:
-    #             kpoint.pt = (kpoint.pt[0] + width_cutoff, kpoint.pt[1])
-    #         features_img[index].keypoints = kpoints
+        # Display keypoints
+        self._plot_images([keypoints_frame_1, keypoints_frame_2], (15, 10))
+        
+        return features_1, features_2
 
-    #     keypoints_center_img = finder.draw_keypoints(final_imgs[1], features_img[1])
+    def plot_image(self, img, figsize_in_inches=(5, 5)):
+        """
+        Display a single image using Matplotlib.
+
+        Parameters
+        ----------
+        img : np.ndarray
+            The image to display.
+        figsize_in_inches : tuple
+            Figure size in inches (default: (5, 5)).
+        """
+        fig, ax = plt.subplots(figsize=figsize_in_inches)
+        ax.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        plt.show()
+
+    def _plot_images(self, images, figsize_in_inches=(5, 5)):
+        """
+        Helper function to plot images side by side.
+        
+        Parameters
+        ----------
+        images : list
+            List of images to plot.
+        figsize_in_inches : tuple
+            Size of the figure (default: (5, 5)).
+        """
+        fig, axs = plt.subplots(1, len(images), figsize=figsize_in_inches)
+        for col, img in enumerate(images):
+            axs[col].imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+        plt.show()
