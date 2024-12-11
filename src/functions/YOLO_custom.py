@@ -108,6 +108,10 @@ class YOLO_custom:
                 # Obtener nombre de clase si está disponible
                 class_name = names[class_id] if class_id is not None and class_id < len(names) else "unknown"
 
+                # Si no detecta a una persona lo saltea
+                if class_name != "Person":
+                    continue
+
                 # Almacenar información del track
                 tracked_data[track_id].append({
                     "frame": frame_idx,
