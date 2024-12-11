@@ -1,7 +1,6 @@
 import sys
 import os
 import numpy as np
-
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
 
@@ -126,13 +125,61 @@ class JoinVideos:
             panorama, _ = blender.blend()
             stitched_frames.append(panorama)
 
-            # Display stitched frame
-            self.plot_image(panorama, figsize_in_inches=(10, 5))
-
         print("Stitching completed for all frames.")
         return stitched_frames
 
+    def reproduce(self, frames, fps=30):
+        """
+        Play a video from a list of frames.
 
+        Parameters
+        ----------
+        frames : list
+            List of stitched frames.
+        fps : int, optional
+            Frames per second for video playback. Default is 30.
+        """
+        for frame in frames:
+            cv2.imshow("Stitched Video", frame)
+            if cv2.waitKey(int(1000 / fps)) & 0xFF == ord('q'):
+                break
+        cv2.destroyAllWindows()
+
+    def save_video(self, frames, output_path, fps=30):
+        """
+        Save a video from a list of frames.
+
+        Parameters
+        ----------
+        frames : list
+            List of frames to save as a video.
+        output_path : str
+            Path to save the video file (e.g., "output.mp4").
+        fps : int, optional
+            Frames per second for the video. Default is 30.
+        """
+        if not frames or len(frames) == 0:
+            raise ValueError("No frames provided to save the video.")
+
+        # Validate dimensions of all frames
+        height, width, _ = frames[0].shape
+        for i, frame in enumerate(frames):
+            if frame.shape != (height, width, 3):
+                raise ValueError(f"Frame {i} has a different size: {frame.shape}. All frames must have the same size.")
+
+        # Initialize VideoWriter
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+        # Write frames
+        for i, frame in enumerate(frames):
+            if frame is None:
+                print(f"Skipping invalid frame at index {i}")
+                continue
+            out.write(frame)
+
+        out.release()
+        print(f"Video successfully saved to {output_path}")
 
     def swap(self):
         """
