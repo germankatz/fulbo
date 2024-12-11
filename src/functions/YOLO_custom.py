@@ -35,6 +35,7 @@ class YOLO_custom:
                 break
 
         return annotated_frames
+    
     def track(self, video_path, mask=None, show_plot=True):
         # Store the track history
         track_history = defaultdict(lambda: [])
@@ -93,6 +94,14 @@ class YOLO_custom:
             annotated_frame = frame.copy()
 
             for (box, track_id, class_id) in zip(boxes, track_ids, class_ids):
+
+                # Obtener nombre de clase si está disponible
+                class_name = names[class_id] if class_id is not None and class_id < len(names) else "unknown"
+
+                # Si no detecta a una persona lo saltea
+                if class_name != "Person":
+                    continue
+
                 x, y, w, h = box
                 x1 = int(x - w/2)
                 y1 = int(y - h/2)
@@ -105,13 +114,6 @@ class YOLO_custom:
                     if inside < 0:
                         continue
 
-                # Obtener nombre de clase si está disponible
-                class_name = names[class_id] if class_id is not None and class_id < len(names) else "unknown"
-
-                # Si no detecta a una persona lo saltea
-                if class_name != "Person":
-                    continue
-
                 # Almacenar información del track
                 tracked_data[track_id].append({
                     "frame": frame_idx,
@@ -122,6 +124,18 @@ class YOLO_custom:
                     "class_id": class_id,
                     "class_name": class_name
                 })
+
+                # Ejemplo
+                # Primer fotograma (frame_idx=0):
+                # Se encuentra un objeto 
+                # Objeto 1 con track_id=1 y coordenadas (x1=10, y1=20, x2=50, y2=80) de la clase "person".
+
+                # tracked_data[1].append({
+                #     "frame": 0,
+                #     "x1": 10, "y1": 20, "x2": 50, "y2": 80,
+                #     "class_id": 0,
+                #     "class_name": "person"
+                # })
 
                 # Dibujar si se requiere plot
                 if show_plot:

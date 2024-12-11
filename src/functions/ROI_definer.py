@@ -78,7 +78,7 @@ class ROIDefiner:
         # Instrucciones en la esquina superior derecha
         # Ajustar posición según el texto y tamaño de la ventana
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.5
+        font_scale = 1.5
         font_thickness = 1
         
         texto1 = "C: Confirmar (solo con 6 pts)"

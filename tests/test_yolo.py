@@ -31,6 +31,7 @@ if __name__ == "__main__":
     tracked_data = model.track(video_path, points, show_plot=False)
 
     # Modelo de datos de tracked_data
+
     # tracked_data = {
     #     track_id: [
     #         {
