@@ -1,0 +1,30 @@
+# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Default YOLO tracker settings for ByteTrack tracker https://github.com/ifzhang/ByteTrack
+
+tracker_type: bytetrack
+track_high_thresh: 0.6
+track_low_thresh: 0.15
+new_track_thresh: 0.6
+track_buffer: 120
+match_thresh: 0.8
+fuse_score: True
+# min_box_area: 10  # threshold for min box areas(for tracker evaluation, not used for now)
+
+# Otro tracker
+
+# tracker_type: botsort
+
+# track_high_thresh: 0.3 # Ligeramente más estricto que 0.25, para asegurar detecciones más confiables antes de asociar
+# track_low_thresh: 0.1 # Similar, para que en la segunda asociación todavía se consideren detecciones de baja confianza, pero no excesivamente bajas
+# new_track_thresh: 0.3 # Elevarlo un poco evita iniciar pistas nuevas muy fácilmente
+# track_buffer: 400 # Duplicar el buffer para mantener pistas más tiempo, evitando cambios de ID bruscos
+# match_thresh: 0.7 # Un match_thresh más moderado (en vez de 0.8) permite mayor tolerancia a pequeñas variaciones espaciales
+# fuse_score: True # Mantener True para aprovechar la fusión de score con IoU
+
+# # BoT-SORT settings
+# gmc_method: sparseOptFlow # Está bien; se encarga de la compensación de movimiento global
+
+# proximity_thresh: 0.5 # Dejarlo en 0.5 puede ser razonable, si fuera con ReID se podría ajustar
+# appearance_thresh: 0.25 # Mantenerlo igual; con ReID activo esto tomaría mayor relevancia
+# with_reid: False # Si en el futuro activas ReID, mejoraría la persistencia de ID
+
