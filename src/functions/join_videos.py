@@ -52,8 +52,6 @@ class JoinVideos:
         
         self.frame_1 = get_first_frame(self.path_video_1)
         self.frame_2 = get_first_frame(self.path_video_2)
-
-
     def join(self, threshold=0.1, detector="sift"):
         """
         Stitch all frames from two videos.
@@ -74,47 +72,56 @@ class JoinVideos:
             raise ValueError("Stitching requires video input. Set `is_video=True` when initializing.")
 
         stitched_frames = []
-        stitcher = Stitcher()
+
+        # Pre-compute features and camera parameters using the first two frames
+        print("Precomputing features and resizing images from the first two frames...")
+        frame_1 = self.video_1[0]
+        frame_2 = self.video_2[0]
+        images = [frame_1, frame_2]
+
+        # Convert images for stitching
+        images_obj = Images.of(images, medium_megapix=0.6, low_megapix=0.1, final_megapix=-1)
+
+        # Resize images
+        medium_imgs = list(images_obj.resize(Images.Resolution.MEDIUM))
+        final_imgs = list(images_obj.resize(Images.Resolution.FINAL))
+
+        # Feature detection
+        finder = FeatureDetector()
+        features = [finder.detect_features(img) for img in medium_imgs]
+
+        # Match features
+        matcher = FeatureMatcher()
+        matches = matcher.match_features(features)
+
+        # Camera estimation
+        camera_estimator = CameraEstimator()
+        camera_adjuster = CameraAdjuster()
+        wave_corrector = WaveCorrector()
+
+        cameras = camera_estimator.estimate(features, matches)
+        cameras = camera_adjuster.adjust(features, matches, cameras)
+        cameras = wave_corrector.correct(cameras)
+
+        # Prepare warper
+        warper = Warper(warper_type='transverseMercator')
+        warper.set_scale(cameras)
+
+        # Precompute final sizes and aspect ratios
+        final_sizes = images_obj.get_scaled_img_sizes(Images.Resolution.FINAL)
+        camera_aspect = images_obj.get_ratio(Images.Resolution.MEDIUM, Images.Resolution.FINAL)
 
         for i in range(len(self.video_1)):
             print(f"Processing frame {i + 1}/{len(self.video_1)}")
             frame_1 = self.video_1[i]
             frame_2 = self.video_2[i]
 
-            images = [frame_1, frame_2]
-
-            # Convert images for stitching
-            images = Images.of(images,medium_megapix=0.6, low_megapix=0.1, final_megapix=-1)
-
-            # Resize images
-            medium_imgs = list(images.resize(Images.Resolution.MEDIUM))
-            low_imgs = list(images.resize(Images.Resolution.LOW))
-            final_imgs = list(images.resize(Images.Resolution.FINAL))
-
-            # Feature detection
-            finder = FeatureDetector()
-            features = [finder.detect_features(img) for img in medium_imgs]
-
-            # Match features
-            matcher = FeatureMatcher()
-            matches = matcher.match_features(features)
-
-            # Camera estimation
-            camera_estimator = CameraEstimator()
-            camera_adjuster = CameraAdjuster()
-            wave_corrector = WaveCorrector()
-
-            cameras = camera_estimator.estimate(features, matches)
-            cameras = camera_adjuster.adjust(features, matches, cameras)
-            cameras = wave_corrector.correct(cameras)
-
             # Warp images
-            warper = Warper(warper_type='transverseMercator')
-            warper.set_scale(cameras)
+            current_images = [frame_1, frame_2]
+            current_images_obj = Images.of(current_images, final_megapix=-1)
+            current_final_imgs = list(current_images_obj.resize(Images.Resolution.FINAL))
 
-            final_sizes = images.get_scaled_img_sizes(Images.Resolution.FINAL)
-            camera_aspect = images.get_ratio(Images.Resolution.MEDIUM, Images.Resolution.FINAL)
-            warped_final_imgs = list(warper.warp_images(final_imgs, cameras, camera_aspect))
+            warped_final_imgs = list(warper.warp_images(current_final_imgs, cameras, camera_aspect))
             warped_final_masks = list(warper.create_and_warp_masks(final_sizes, cameras, camera_aspect))
             final_corners, final_sizes = warper.warp_rois(final_sizes, cameras, camera_aspect)
 
@@ -129,6 +136,7 @@ class JoinVideos:
 
         print("Stitching completed for all frames.")
         return stitched_frames
+
 
 
 
