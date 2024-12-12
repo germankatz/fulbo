@@ -6,7 +6,6 @@ import matplotlib.patches as patches
 from scipy.ndimage import zoom
 
 
-
 class Process:
     def __init__(self, field_width=68, field_length=105):
         self.field_width = field_width
@@ -290,4 +289,104 @@ class Process:
                     return
 
                 frame_idx += 1
+
+    def get_first_bounding_box(self, video_path, tracked_data, player_id):
+        """
+        Retorna la primera bounding box para un jugador específico en el video.
+
+        video_path: ruta del video
+        tracked_data: diccionario con datos de tracking
+        player_id: id del jugador a buscar
+
+        Retorna:
+            bbox: (x1, y1, x2, y2) o None si no se encuentra
+        """
+        if player_id not in tracked_data:
+            raise ValueError(f"El jugador con track_id {player_id} no está en los datos.")
+
+        player_data = tracked_data[player_id]
+        if not player_data:
+            return None
+
+        first_detection = player_data[0]
+        bbox = (first_detection["x1"], first_detection["y1"], first_detection["x2"], first_detection["y2"])
+        return bbox
+    
+
+    def get_first_bounding_box_image(self, video_path, tracked_data, player_id):
+        """
+        Retorna la primera bounding box como una imagen para un jugador específico en el video.
+
+        video_path: ruta del video
+        tracked_data: diccionario con datos de tracking
+        player_id: id del jugador a buscar
+
+        Retorna:
+            bbox_image: imagen de la bounding box o None si no se encuentra
+        """
+        if player_id not in tracked_data:
+            raise ValueError(f"El jugador con track_id {player_id} no está en los datos.")
+
+        player_data = tracked_data[player_id]
+        if not player_data:
+            return None
+
+        first_detection = player_data[0]
+        bbox = (first_detection["x1"], first_detection["y1"], first_detection["x2"], first_detection["y2"])
+        
+        cap = cv2.VideoCapture(video_path)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, first_detection["frame"])
+        ret, frame = cap.read()
+        cap.release()
+
+        if not ret:
+            return None
+
+        x1, y1, x2, y2 = bbox
+        bbox_image = frame[y1:y2, x1:x2]
+        return bbox_image
+
+    def plot_bounding_boxes(self, video_path, tracked_data, player_groups):
+        """
+        Plots the first bounding box of each player in their respective groups.
+
+        video_path: path to the video
+        tracked_data: dictionary with tracking data
+        player_groups: dictionary with player groups
+        """
+        group_titles = ["Group 0", "Group 1", "Group 2"]
+        group_images = {0: [], 1: [], 2: []}
+        target_height = 100  # Set a target height for all images
+
+        for group in range(3):
+            group_players = [player_id for player_id, grp in player_groups.items() if grp == group]
+            for player_id in group_players:
+                bbox_image = self.get_first_bounding_box_image(video_path, tracked_data, player_id)
+                if bbox_image is not None:
+                    height, width = bbox_image.shape[:2]
+                    aspect_ratio = width / height
+                    new_width = int(target_height * aspect_ratio)
+                    resized_image = cv2.resize(bbox_image, (new_width, target_height))
+                    group_images[group].append((resized_image, player_id))
+
+        combined_rows = []
+        for group in range(3):
+            if group_images[group]:
+                combined_image = cv2.hconcat([img for img, _ in group_images[group]])
+                for idx, (_, player_id) in enumerate(group_images[group]):
+                    cv2.putText(combined_image, f"Player ID: {player_id}", (10, 30),
+                                cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+                combined_rows.append(combined_image)
+
+        if combined_rows:
+            max_width = max(img.shape[1] for img in combined_rows)
+            for i in range(len(combined_rows)):
+                if combined_rows[i].shape[1] < max_width:
+                    padding = np.zeros((target_height, max_width - combined_rows[i].shape[1], 3), dtype=np.uint8)
+                    combined_rows[i] = cv2.hconcat([combined_rows[i], padding])
+            final_image = cv2.vconcat(combined_rows)
+            cv2.imshow("Player Groups", final_image)
+
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 

@@ -2,6 +2,7 @@ import sys
 import os
 import matplotlib.pyplot as plt
 import cv2
+import numpy as np
 
 # Agrega la raíz del proyecto al sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
@@ -10,6 +11,7 @@ from src.utils import read_video
 from src.functions.YOLO_custom import YOLO_custom
 from src.functions.ROI_definer import ROIDefiner
 from src.functions.Process import Process
+from src.functions.modules.select_teams import SelectTeams
 
 def detect_with_YOLO(frame):
     model = YOLO_custom("yolo11n.pt", True)
@@ -28,7 +30,9 @@ if __name__ == "__main__":
 
     # Detect and track with YOLO
     model = YOLO_custom("yolo11n.pt", True)
-    tracked_data = model.track(video_path, points, show_plot=True)
+    tracked_data = model.track(video_path, points, show_plot=False)
+
+
 
     # Modelo de datos de tracked_data
 
@@ -63,42 +67,15 @@ if __name__ == "__main__":
     print(f"Se han detectado {len(tracked_data)} jugadores en el video.")
 
     # Plot heatmap
-    process.plot_heatmap(heatmap)
+    # process.plot_heatmap(heatmap)
 
     # Draw selected player box
-    process.draw_player_box(video_path, tracked_data, player_id)
+    # process.draw_player_box(video_path, tracked_data, player_id)
 
+    # Classify players into teams
+    select_teams = SelectTeams(video_path, tracked_data)
+    player_groups = select_teams.classify_players()
+    print("Player groups:", player_groups)
 
-
-    # video = read_video(video_path)
-
-    # frames_detected = []
-    # # Show video
-    # for frame in video:
-    # #     # cv2.imshow("Frame", frame)
-    #     detected_frame = detect_with_YOLO(frame)
-    #     frames_detected.append(detected_frame)
-        # cv2.imshow("Frame", detected_frame)
-        # if cv2.waitKey(1) & 0xFF == ord('q'):
-        #     break
-    # cv2.destroyAllWindows()
-
-    # Save frames as video
-
-
-    # for i, fd in enumerate(frames_detected):
-        
-    #     cv2.imshow("Frame", fd)
-    #     if cv2.waitKey(1) & 0xFF == ord('q'):
-    #         break
-    # cv2.destroyAllWindows()
-
-    
-    # detected_frame = detect_with_YOLO("C:/Users/germa/Documents/Facultad/PFC/desarrollo/fulbo/data/temp/result.jpg")
-    # frames_detected.append(detected_frame)
-
-    # # Show detected video
-    # for frame in frames_detected:
-    #     cv2.imshow("Frame", frame)
-    #     if cv2.waitKey(1) & 0xFF == ord('q'):
-    #         break
+    # Plot the first bounding box of each player in their respective groups using the new function
+    process.plot_bounding_boxes(video_path, tracked_data, player_groups)
