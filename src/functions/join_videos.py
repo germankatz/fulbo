@@ -1,5 +1,7 @@
 import sys
 import os
+import cv2
+
 import numpy as np
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
@@ -82,7 +84,7 @@ class JoinVideos:
             images = [frame_1, frame_2]
 
             # Convert images for stitching
-            images = Images.of(images)
+            images = Images.of(images,medium_megapix=0.6, low_megapix=0.1, final_megapix=-1)
 
             # Resize images
             medium_imgs = list(images.resize(Images.Resolution.MEDIUM))
@@ -128,6 +130,9 @@ class JoinVideos:
         print("Stitching completed for all frames.")
         return stitched_frames
 
+
+
+    
     def reproduce(self, frames, fps=30):
         """
         Play a video from a list of frames.
