@@ -19,7 +19,7 @@ def detect_with_YOLO(frame):
     return detection
 
 if __name__ == "__main__":
-    video_path = "C:/Users/germa/Documents/Facultad/PFC/desarrollo/fulbo/data/temp/partido_full_panoramic.webm"
+    video_path = "C:/Users/germa/Documents/Facultad/PFC/desarrollo/fulbo/data/temp/izquierda_sync_trim.mp4"
 
     
     # Select ROI
