@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import matplotlib.patches as patches
+from scipy.ndimage import zoom
+
 
 
 class Process:
@@ -132,8 +134,16 @@ class Process:
         """
         cmap = mcolors.LinearSegmentedColormap.from_list('field_cmap', ['green', 'yellow', 'red'])
 
-        # Espejar el mapa de calor en el eje X
-        heatmap = np.fliplr(heatmap)  # Espejar el mapa de calor horizontalmente
+        # Expandir el heatmap
+        scale_factor = 3  # Ajusta este valor para cambiar el tamaño del heatmap
+        heatmap = zoom(heatmap, scale_factor, order=3)  # Interpolación cúbica para suavizado
+
+        # Recortar el heatmap a las dimensiones de la cancha
+        heatmap = heatmap[:int(self.field_length * scale_factor), :int(self.field_width * scale_factor)]
+
+
+        # Espejar el heatmap en el eje X si es necesario
+        heatmap = np.fliplr(heatmap)
 
         plt.figure(figsize=(8, 12))
         plt.imshow(
@@ -141,7 +151,8 @@ class Process:
             origin='lower',
             cmap=cmap,
             aspect='equal',
-            extent=[0, self.field_width, 0, self.field_length]  # Ancho es X, largo es Y
+            extent=[0, self.field_width, 0, self.field_length],  # Ancho es X, largo es Y
+            interpolation='bilinear'  # Suavizar el heatmap
         )
 
         # Dibujar líneas de la cancha

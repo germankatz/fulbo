@@ -19,7 +19,7 @@ def detect_with_YOLO(frame):
     return detection
 
 if __name__ == "__main__":
-    video_path = "C:/Users/germa/Documents/Facultad/PFC/desarrollo/fulbo/data/temp/izquierda_sync_trim.mp4"
+    video_path = "C:/Users/germa/Documents/Facultad/PFC/desarrollo/fulbo/data/temp/partido_full_panoramic.webm"
 
     
     # Select ROI
@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
     # Detect and track with YOLO
     model = YOLO_custom("yolo11n.pt", True)
-    tracked_data = model.track(video_path, points, show_plot=False)
+    tracked_data = model.track(video_path, points, show_plot=True)
 
     # Modelo de datos de tracked_data
 
