@@ -18,6 +18,7 @@ from stitching.camera_wave_corrector import WaveCorrector
 from stitching.warper import Warper
 from stitching.cropper import Cropper
 from stitching.blender import Blender
+from stitching.subsetter import Subsetter
 import cv2
 
 from stitching.feature_matcher import FeatureMatcher  # Add this line
@@ -52,9 +53,10 @@ class JoinVideos:
         
         self.frame_1 = get_first_frame(self.path_video_1)
         self.frame_2 = get_first_frame(self.path_video_2)
+            
     def join(self, threshold=0.1, detector="sift"):
         """
-        Stitch all frames from two videos.
+        Stitch all frames from two videos with a fixed transformation.
 
         Parameters
         ----------
@@ -73,26 +75,48 @@ class JoinVideos:
 
         stitched_frames = []
 
-        # Pre-compute features and camera parameters using the first two frames
-        print("Precomputing features and resizing images from the first two frames...")
+        # Pre-compute features, cameras, and transformations using the first two frames
+        print("Precomputing transformations using the first two frames...")
         frame_1 = self.video_1[0]
         frame_2 = self.video_2[0]
-        images = [frame_1, frame_2]
+        initial_images = [frame_1, frame_2]
 
-        # Convert images for stitching
-        images_obj = Images.of(images, medium_megapix=0.6, low_megapix=0.1, final_megapix=-1)
+        # Convert images for stitching bajamos resoluciones
+        images = Images.of(initial_images, medium_megapix=0.6, low_megapix=0.1, final_megapix=-1)
 
-        # Resize images
-        medium_imgs = list(images_obj.resize(Images.Resolution.MEDIUM))
-        final_imgs = list(images_obj.resize(Images.Resolution.FINAL))
+        # Resize images traemos las imagenes
+        low_imgs = list(images.resize(Images.Resolution.LOW))
+        medium_imgs = list(images.resize(Images.Resolution.MEDIUM))
+        final_imgs = list(images.resize(Images.Resolution.FINAL))
+        self._plot_images(low_imgs, (10,10))
 
         # Feature detection
         finder = FeatureDetector()
         features = [finder.detect_features(img) for img in medium_imgs]
-
+        keypoints_center_img = finder.draw_keypoints(medium_imgs[1], features[1])
         # Match features
         matcher = FeatureMatcher()
         matches = matcher.match_features(features)
+        all_relevant_matches = matcher.draw_matches_matrix(medium_imgs, features, matches, conf_thresh=1, inliers=True, matchColor=(0, 255, 0))
+        
+        # # Plot matches
+        # for idx1, idx2, img in all_relevant_matches:
+        #     print(f"Matches Image {idx1+1} to Image {idx2+1}")
+        #     plot_image(img, (20,10))
+
+        #Subsetter
+        
+        # subsetter = Subsetter()
+        # dot_notation = subsetter.get_matches_graph(images_obj.names, matches)
+
+        # indices = subsetter.get_indices_to_keep(features, matches)
+
+        # medium_imgs = subsetter.subset_list(medium_imgs, indices)
+        # low_imgs = subsetter.subset_list(low_imgs, indices)
+        # final_imgs = subsetter.subset_list(final_imgs, indices)
+        # features = subsetter.subset_list(features, indices)
+        # matches = subsetter.subset_matches(matches, indices)
+
 
         # Camera estimation
         camera_estimator = CameraEstimator()
@@ -102,29 +126,64 @@ class JoinVideos:
         cameras = camera_estimator.estimate(features, matches)
         cameras = camera_adjuster.adjust(features, matches, cameras)
         cameras = wave_corrector.correct(cameras)
-
-        # Prepare warper
-        warper = Warper(warper_type='transverseMercator')
+        # ## Warp images
+        warper = Warper(warper_type='transverseMercator') # Usamos este tipo de warper porque es el que mejor se ajusta a la proyección de la cámara
         warper.set_scale(cameras)
 
-        # Precompute final sizes and aspect ratios
-        final_sizes = images_obj.get_scaled_img_sizes(Images.Resolution.FINAL)
-        camera_aspect = images_obj.get_ratio(Images.Resolution.MEDIUM, Images.Resolution.FINAL)
+
+        low_sizes = images.get_scaled_img_sizes(Images.Resolution.LOW)
+        camera_aspect = images.get_ratio(Images.Resolution.MEDIUM, Images.Resolution.LOW)  # Como se ajusta la cámara de baja resolución a la de media resolución
+
+        warped_low_imgs = list(warper.warp_images(low_imgs, cameras, camera_aspect))
+        warped_low_masks = list(warper.create_and_warp_masks(low_sizes, cameras, camera_aspect))
+        low_corners, low_sizes = warper.warp_rois(low_sizes, cameras, camera_aspect)
+
+        final_sizes = images.get_scaled_img_sizes(Images.Resolution.FINAL)
+        camera_aspect = images.get_ratio(Images.Resolution.MEDIUM, Images.Resolution.FINAL)
+
+        warped_final_imgs = list(warper.warp_images(final_imgs, cameras, camera_aspect))
+        warped_final_masks = list(warper.create_and_warp_masks(final_sizes, cameras, camera_aspect))
+        final_corners, final_sizes = warper.warp_rois(final_sizes, cameras, camera_aspect)
+
+        self._plot_images(warped_low_imgs, (10,10))
+        self._plot_images(warped_low_masks, (10,10))
+        # Use the fixed transformations for all frames
+        
+        # ## Mask
+
+        cropper = Cropper()
+        mask = cropper.estimate_panorama_mask(warped_low_imgs, warped_low_masks, low_corners, low_sizes)
+
+        # Mostramos la máscara final que se forma
+        self.plot_image(mask, (5,5))
+
+        # # Join images
+
+        blender = Blender()
+        blender.prepare(final_corners, final_sizes)
+        for img, mask, corner in zip(warped_final_imgs, warped_final_masks, final_corners):
+            blender.feed(img, mask, corner)
+        panorama, _ = blender.blend()
+
+        # Imagen final
+        self.plot_image(panorama, (20,20))
 
         for i in range(len(self.video_1)):
             print(f"Processing frame {i + 1}/{len(self.video_1)}")
             frame_1 = self.video_1[i]
             frame_2 = self.video_2[i]
 
-            # Warp images
             current_images = [frame_1, frame_2]
             current_images_obj = Images.of(current_images, final_megapix=-1)
             current_final_imgs = list(current_images_obj.resize(Images.Resolution.FINAL))
 
+            # Apply the fixed warp transformation
             warped_final_imgs = list(warper.warp_images(current_final_imgs, cameras, camera_aspect))
+            # self._plot_images(warped_final_imgs)
+            final_sizes = current_images_obj.get_scaled_img_sizes(Images.Resolution.FINAL)
             warped_final_masks = list(warper.create_and_warp_masks(final_sizes, cameras, camera_aspect))
             final_corners, final_sizes = warper.warp_rois(final_sizes, cameras, camera_aspect)
-
+    
             # Join images
             blender = Blender()
             blender.prepare(final_corners, final_sizes)
@@ -132,11 +191,11 @@ class JoinVideos:
                 blender.feed(img, mask, corner)
 
             panorama, _ = blender.blend()
+            # self.plot_image(panorama)
             stitched_frames.append(panorama)
 
         print("Stitching completed for all frames.")
         return stitched_frames
-
 
 
 

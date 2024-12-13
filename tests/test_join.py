@@ -15,8 +15,8 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
 
-    path1 = "data/temp/23/left_short.mp4"
-    path2 = "data/temp/23/right_short.mp4"
+    path1 = "data/temp/23/left.mp4"
+    path2 = "data/temp/23/right.mp4"
 
     output_path="C:/Users/agusr/OneDrive/Escritorio/Íconos/Ordenado/Formación/Ing. en Informática/PFC/Informe final/fulbo/data/temp/23/output3.mp4"
 
