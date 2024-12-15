@@ -1,7 +1,12 @@
 # Python program to create a basic form 
 # GUI application using the customtkinter module
+from CTkMessagebox import CTkMessagebox
 import customtkinter as ctk
 import tkinter as tk
+import time
+import cv2
+from PIL import Image, ImageTk
+from functions.ROI_definer import ROIDefiner
 
 # Sets the appearance of the window
 # Supported modes : Light, Dark, System
@@ -19,6 +24,11 @@ appWidth, appHeight = 600, 700
 
 # App Class
 class App(ctk.CTk):
+	path1 = None
+	path2 = None
+	joinedPath = None
+	ROIpoints = None
+
 	# The layout of the window will be written
 	# in the init function itself
 	def __init__(self, *args, **kwargs):
@@ -82,6 +92,7 @@ class App(ctk.CTk):
 		self.altoEntry = ctk.CTkEntry(self,
 							placeholder_text="Alto en metros",
 							width=30)
+		self.altoEntry.insert(0, "108")
 		self.altoEntry.grid(row=8, column=0, padx=20,
 						pady=(0,20), sticky="ew")
 		
@@ -95,30 +106,103 @@ class App(ctk.CTk):
 		# Dimension ancho Field
 		self.anchoEntry = ctk.CTkEntry(self,
 							placeholder_text="Ancho en metros")
+		self.anchoEntry.insert(0, "68")
 		self.anchoEntry.grid(row=8, column=1, padx=20,
 						pady=(0,20), sticky="ew")
 
 		# Generate Button
 		self.generateResultsButton = ctk.CTkButton(self,
 										text="Unir videos",
-										command=self.generateResults)
+										command=self.joinVideos)
 		self.generateResultsButton.grid(row=9, column=0,
 										columnspan=2, padx=20, 
 										pady=20, sticky="ew")
 
 
+	def joinVideos(self):
+		print("Uniendo videos")
+		"""
+		Take the two video paths, show a loading spinner for 3 seconds,
+		and display a frame from the first video.
+		"""
+		# Check if both videos have been uploaded
+		if not self.path1 or not self.path2:
+			CTkMessagebox(title="Error", message="Please upload both videos first.", icon="cancel")  # Use a valid icon
+			return
 
-	# This function is used to insert the 
-	# details entered by users into the textbox
-	def generateResults(self):
-		self.displayBox.delete("0.0", "200.0")
-		text = self.createText()
-		self.displayBox.insert("0.0", text)
+		# Show loading spinner
+		loading_label = ctk.CTkLabel(self, text="Loading...", font=("Arial", 16, "bold"))
+		loading_label.grid(row=10, column=0, columnspan=2, pady=20)
+		self.update()
 
-	# This function is used to get the selected 
-	# options and text from the available entry
-	# fields and boxes and then generates 
-	# a prompt using them
+		# Simulate loading time
+		time.sleep(3)
+
+		# Remove loading spinner
+		loading_label.grid_forget()
+
+		# Display a frame from the first video
+		first_frame = self.getFirstFrame(self.path1)
+		if first_frame is not None:
+			# TODO Combined frames
+			self.joinedPath = self.path1 
+			self.displayFrame(first_frame)
+		else:
+			CTkMessagebox(title="Error", message="Failed to read frame", icon="cancel")
+
+	def getFirstFrame(self, video_path):
+		cap = cv2.VideoCapture(video_path)
+		if cap.isOpened():
+			ret, frame = cap.read()
+			if ret:
+				return frame
+			else:
+				print("Failed to read frame from Video 1.")
+				cap.release()
+				return None
+		else:
+			print("Failed to open Video 1.")
+			cap.release()
+			return None
+
+	def displayFrame(self, frame):
+		# Convert the frame to a format suitable for Tkinter
+		frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+		frame_image = Image.fromarray(frame_rgb)
+		frame_image.thumbnail((200, 200))  # Resize to fit in the UI
+		frame_photo = ImageTk.PhotoImage(frame_image)
+
+		# Display the frame in the UI
+		self.resultLabel = ctk.CTkLabel(self, text="3. Marcar cancha", font=("Arial", 16, "bold"))
+		self.resultLabel.grid(row=2, column=3, padx=20, pady=(20, 0), sticky="w")
+
+		self.frameLabel = ctk.CTkLabel(self, text="", image=frame_photo, cursor="hand2")
+		self.frameLabel.image = frame_photo  # Keep a reference to avoid garbage collection
+		self.frameLabel.grid(row=3, column=3, padx=20, pady=10, sticky="n")
+		self.frameLabel.bind("<Button-1>", lambda e: self.showFullImage(self.joinedPath))
+
+		self.processButton = ctk.CTkButton(self, text="Procesar Video", command=self.processVideo)
+		self.processButton.grid(row=4, column=3, padx=20, pady=10, sticky="ew")
+
+	def showFullImage(self, path):
+		points, marked_frame = ROIDefiner.define_roi_from_video(path)
+		self.ROIpoints = points
+		if marked_frame is not None:
+			# Convert the marked frame to a format suitable for Tkinter
+			marked_frame_rgb = cv2.cvtColor(marked_frame, cv2.COLOR_BGR2RGB)
+			marked_frame_image = Image.fromarray(marked_frame_rgb)
+			marked_frame_image.thumbnail((200, 200))  # Resize to fit in the UI
+			marked_frame_photo = ImageTk.PhotoImage(marked_frame_image)
+
+			# Update the frameLabel with the marked frame
+			self.frameLabel.configure(image=marked_frame_photo)
+			self.frameLabel.image = marked_frame_photo  # Keep a reference to avoid garbage collection
+
+	def processVideo(self):
+		print("Processing video...")
+		# Add your video processing code here
+		
+
 	def createText(self):
 		checkboxValue = ""
 
@@ -142,15 +226,16 @@ class App(ctk.CTk):
 	# Function to handle video 1 upload
 	def upload_video1(self):
 		filepath = tk.filedialog.askopenfilename()
+		self.path1 = filepath
 		print(f"Video 1 path: {filepath}")
 		self.video1Path.configure(text=("...",filepath[-22:]))
 
 	# Function to handle video 2 upload
 	def upload_video2(self):
 		filepath = tk.filedialog.askopenfilename()
+		self.path2 = filepath
 		print(f"Video 2 path: {filepath}")
 		self.video2Path.configure(text=("...",filepath[-22:]))
-	
 
 if __name__ == "__main__":
 	app = App()

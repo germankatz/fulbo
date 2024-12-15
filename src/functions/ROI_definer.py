@@ -113,8 +113,9 @@ class ROIDefiner:
 
         if not ret:
             print("No se pudo leer el primer frame del video.")
-            return []
+            return [], None
 
         roi_definer = ROIDefiner(frame, max_points=6)
         points = roi_definer.run()
-        return points
+        marked_frame = roi_definer.draw_points_and_polygon()
+        return points, marked_frame
