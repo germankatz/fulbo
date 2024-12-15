@@ -15,16 +15,24 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
 
-    path1 = "data/temp/23/left.mp4"
-    path2 = "data/temp/23/right.mp4"
 
-    output_path="C:/Users/agusr/OneDrive/Escritorio/Íconos/Ordenado/Formación/Ing. en Informática/PFC/Informe final/fulbo/data/temp/23/output3.mp4"
+    path1 = "data/temp/izquierda_sync.mp4"
+    path2 = "data/temp/derecha_sync.mp4"
 
+    # path1 = "data/temp/23/left.mp4"
+    # path2 = "data/temp/23/right.mp4"
+
+    output_path="C:/Users/germa/Documents/Facultad/PFC/desarrollo/fulbo/data/temp/23/output3.mp4"
+
+    print("Joining videos...")
     joiner = JoinVideos(path1, path2, True) #True si es video, False si queremos una foto
-    joined_frames = joiner.join(output_path) #threshold=0.1
-    joiner.reproduce(joined_frames)
-    print(len(joined_frames))
-    joiner.save_video(joined_frames, output_path)
+    print("Videos joined.")
+    print("Joining frames...")
+    joiner.join_simple()
+    # joined_frames = joiner.join(output_path) #threshold=0.1
+    # joiner.reproduce(joined_frames)
+    # print(len(joined_frames))
+    # joiner.save_video(joined_frames, output_path)
 
     #Pruebo estabilización
 
