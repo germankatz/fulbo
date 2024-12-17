@@ -2,6 +2,7 @@ import customtkinter as ctk
 import tkinter as tk
 from PIL import Image, ImageTk
 from functions.Process import Process
+from functions.modules.calculate_distance import calculate_distance_traveled
 import cv2
 import time
 
@@ -110,9 +111,16 @@ class ResultsWindow(ctk.CTkToplevel):
         merge_selector.bind("<Button-1>", lambda e, p=player: self.populate_merge_selector(merge_selector, player))
         merge_selector.bind("<<ComboboxSelected>>", lambda e, p=player: self.merge_players(p, merge_selector.get()))
 
+        # Add distance label
+        distance_label = ctk.CTkLabel(player_frame, 
+                                    text=f"Distancia recorrida: {player['distance']} metros",
+                                    font=("Arial", 12),
+                                    fg_color="#344E41")
+        distance_label.grid(row=1, column=3, rowspan=1, padx=5, pady=5)
+
         # Add heatmap button in the third column
         heatmap_button = ctk.CTkButton(player_frame, text="Ver mapa calor", command=lambda p=player: self.show_heatmap(p, player["player_id"]))
-        heatmap_button.grid(row=0, column=3, rowspan=3, padx=5, pady=5)
+        heatmap_button.grid(row=0, column=3, rowspan=1, padx=5, pady=5)  # Adjust row
 
         # Add delete button in the fourth column
         delete_button = ctk.CTkButton(player_frame, text="Eliminar", command=lambda p=player: self.delete_player(p))
@@ -213,9 +221,16 @@ class ResultsWindow(ctk.CTkToplevel):
         merge_selector.bind("<Button-1>", lambda e, p=player: self.populate_merge_selector(merge_selector, player))
         merge_selector.bind("<<ComboboxSelected>>", lambda e, p=player: self.merge_players(p, merge_selector.get()))
 
+        # Add distance label
+        distance_label = ctk.CTkLabel(player_frame, 
+                                    text=f"Distancia recorrida: {player['distance']} metros",
+                                    font=("Arial", 12),
+                                    fg_color="#344E41")
+        distance_label.grid(row=1, column=3, rowspan=1, padx=5, pady=5)
+
         # Add heatmap button in the third column
         heatmap_button = ctk.CTkButton(player_frame, text="Ver mapa calor", command=lambda p=player: self.show_heatmap(p, player["player_id"]))
-        heatmap_button.grid(row=0, column=3, rowspan=3, padx=5, pady=5)
+        heatmap_button.grid(row=0, column=3, rowspan=1, padx=5, pady=5)  # Adjust row
 
         # Add delete button in the fourth column
         delete_button = ctk.CTkButton(player_frame, text="Eliminar", command=lambda p=player: self.delete_player(p))
