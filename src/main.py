@@ -10,6 +10,7 @@ from functions.ROI_definer import ROIDefiner
 from functions.YOLO_custom import YOLO_custom
 from functions.Process import Process
 from functions.modules.select_teams import SelectTeams
+from functions.modules.validate_video import validate_video
 from functions.results_window import ResultsWindow
 from functions.join_videos import JoinVideos
 
@@ -305,6 +306,12 @@ class App(ctk.CTk):
 	# Function to handle video 1 upload
 	def upload_video1(self):
 		filepath = tk.filedialog.askopenfilename()
+		if not filepath:
+			return
+		valid, reason = validate_video(filepath)
+		if not valid:
+			CTkMessagebox(title="Video rechazado", message=reason, icon="cancel")
+			return
 		self.path1 = filepath
 		print(f"Video 1 path: {filepath}")
 		self.video1Path.configure(text=("...",filepath[-22:]))
@@ -312,6 +319,12 @@ class App(ctk.CTk):
 	# Function to handle video 2 upload
 	def upload_video2(self):
 		filepath = tk.filedialog.askopenfilename()
+		if not filepath:
+			return
+		valid, reason = validate_video(filepath)
+		if not valid:
+			CTkMessagebox(title="Video rechazado", message=reason, icon="cancel")
+			return
 		self.path2 = filepath
 		print(f"Video 2 path: {filepath}")
 		self.video2Path.configure(text=("...",filepath[-22:]))
