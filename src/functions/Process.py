@@ -458,3 +458,50 @@ class Process:
         # Plot the heatmap
         self.plot_heatmap(heatmap, title=f"Mapa de Calor del Equipo {team_id}")
 
+    def calculate_real_world_distance(self, tracked_points, roi_points, field_dimensions):
+        """Calculate total distance in meters using perspective transform"""
+        if not tracked_points or len(tracked_points) < 2:
+            return 0
+
+        field_width, field_height = field_dimensions
+        
+        # Extract only the corner points (removing center points)
+        corner_points = np.float32([
+            roi_points[0],  # top_left
+            roi_points[2],  # top_right
+            roi_points[3],  # bottom_right
+            roi_points[5]   # bottom_left
+        ])
+        
+        # Define destination points for the corners
+        dst_points = np.float32([
+            [0, 0],                    # top_left
+            [field_width, 0],          # top_right
+            [field_width, field_height], # bottom_right
+            [0, field_height]           # bottom_left
+        ])
+
+        # Calculate perspective transform matrix
+        matrix = cv2.getPerspectiveTransform(corner_points, dst_points)
+        
+        # Convert tracked points to real-world coordinates
+        real_world_points = []
+        for point in tracked_points:
+            # Extract x,y from the middle of the bounding box
+            x = (point['x1'] + point['x2']) / 2
+            y = (point['y1'] + point['y2']) / 2
+            
+            point_array = np.float32([[x, y]])
+            transformed = cv2.perspectiveTransform(point_array.reshape(-1, 1, 2), matrix)
+            real_world_points.append(transformed.reshape(2))
+        
+        # Calculate total distance
+        total_distance = 0
+        for i in range(1, len(real_world_points)):
+            dx = real_world_points[i][0] - real_world_points[i-1][0]
+            dy = real_world_points[i][1] - real_world_points[i-1][1]
+            distance = np.sqrt(dx*dx + dy*dy)
+            total_distance += distance
+        
+        return round(total_distance, 2)
+

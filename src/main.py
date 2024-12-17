@@ -11,6 +11,7 @@ from functions.YOLO_custom import YOLO_custom
 from functions.Process import Process
 from functions.modules.select_teams import SelectTeams
 from functions.results_window import ResultsWindow
+from functions.join_videos import JoinVideos
 
 # Sets the appearance of the window
 # Supported modes : Light, Dark, System
@@ -32,6 +33,7 @@ class App(ctk.CTk):
 	path2 = None
 	joinedPath = None
 	ROIpoints = None
+	output_path = "C:/Users/germa/Documents/Facultad/PFC/desarrollo/fulbo/data/temp/23/output3.mp4"
 
 	# The layout of the window will be written
 	# in the init function itself
@@ -133,6 +135,10 @@ class App(ctk.CTk):
 		if not self.path1 or not self.path2:
 			CTkMessagebox(title="Error", message="Please upload both videos first.", icon="cancel")  # Use a valid icon
 			return
+		
+		# Join the two videos
+		# joiner = JoinVideos(self.path1, self.path2, self.output_path)
+		# joiner.stitch_videos()
 
 		# Show loading spinner
 		loading_label = ctk.CTkLabel(self, text="Loading...", font=("Arial", 16, "bold"))
@@ -205,6 +211,7 @@ class App(ctk.CTk):
 	def processVideo(self):
 		print("Processing video...")
 		model = YOLO_custom("yolo11n.pt", True)
+		process = Process()
 
 		def progress_callback(current_frame, total_frames):
 			if current_frame == -1:
@@ -230,14 +237,20 @@ class App(ctk.CTk):
 		player_groups = select_teams.classify_players()
 		print("Player groups:", player_groups)
 
-		# Create player data structure
+		# Create player data structure with distances
 		players_data = []
+		field_dimensions = (float(self.anchoEntry.get()), float(self.altoEntry.get()))
+		
+		self.progressLabel.configure(text=f"Calculando distancias...")
+		print("Calculando distancias...")
 		for track_id, track_info in tracked_data.items():
+			distance = process.calculate_real_world_distance(track_info, self.ROIpoints, field_dimensions)
 			player = {
 				"name": "",
 				"player_id": track_id,
 				"team": player_groups.get(track_id, "Unknown"),
-				"tracked_points": track_info
+				"tracked_points": track_info,
+				"distance": distance
 			}
 			players_data.append(player)
 
