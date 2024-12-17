@@ -1,8 +1,11 @@
 # <div align="center">FULBO</div>
+
 ### <div align="center">Desarrollo de sistema de captura y procesamiento de video con técnicas de machine learning aplicadas a partidos de fútbol</div>
+
 <div align="center">Agustín Roldán y Germán Katzenelson</div>
 
 ---
+
 ## Cómo Configurar el Proyecto
 
 Este proyecto utiliza un entorno virtual (`venv`) para manejar las dependencias de Python y un archivo `requirements.txt` para compartir las mismas entre los desarrolladores. A continuación, te explicamos cómo configurarlo correctamente.
@@ -35,7 +38,9 @@ Activa el entorno virtual según tu sistema operativo:
 ---
 
 ### **3. Instalar las dependencias**
+
 Si su placa de video es compatible puede instalar CUDA para agilizar el procesamiento:
+
 ```bash
 pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 ```
