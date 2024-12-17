@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import matplotlib.patches as patches
-from scipy.ndimage import zoom
+from scipy.ndimage import zoom, gaussian_filter
 
 
 class Process:
@@ -24,14 +24,16 @@ class Process:
         if len(roi_points) != 6:
             raise ValueError("Se necesitan exactamente 6 puntos para calcular la homografía.")
 
-        # Puntos del mundo (coordenadas reales de la cancha) ajustados al nuevo orden
+        # Puntos del mundo (coordenadas reales de la cancha) ajustados al nuevo orden.
+        # Los tres puntos de arriba son la línea lateral lejana, que va de un arco al otro:
+        # en el esquema vertical corre a lo largo (eje Y), y el ancho queda en el eje X.
         world_points = np.array([
             [0, 0],  # top_left
-            [self.field_width / 2, 0],  # top_center
-            [self.field_width, 0],  # top_right
+            [0, self.field_length / 2],  # top_center
+            [0, self.field_length],  # top_right
             [self.field_width, self.field_length],  # bottom_right
-            [self.field_width / 2, self.field_length],  # bottom_center
-            [0, self.field_length]  # bottom_left
+            [self.field_width, self.field_length / 2],  # bottom_center
+            [self.field_width, 0]  # bottom_left
         ], dtype=np.float32)
 
         image_points = np.array(roi_points, dtype=np.float32)
@@ -108,9 +110,9 @@ class Process:
 
         player_data = tracked_data[player_id]
 
-        # Obtener el centro de cada caja
+        # Obtener el pie de cada caja (donde el jugador apoya en el pasto)
         image_positions = [
-            ((entry['x1'] + entry['x2']) / 2.0, (entry['y1'] + entry['y2']) / 2.0)
+            ((entry['x1'] + entry['x2']) / 2.0, entry['y2'])
             for entry in player_data
         ]
 
@@ -125,13 +127,31 @@ class Process:
     
     
     
-    def plot_heatmap(self, heatmap):
+    def normalize_heatmap(self, heatmap, sigma=2.0, percentile=99):
+        """
+        Suaviza el mapa y lo lleva a una escala de 0 a 1.
+
+        sigma: cuántos metros alrededor se reparte cada posición.
+        percentile: lo que supera este percentil satura en rojo, para que un rato quieto
+            en un mismo lugar no se coma la escala y el resto se vea como zona.
+        """
+        suave = gaussian_filter(heatmap, sigma=sigma)
+        if not np.any(suave > 0):
+            return suave
+        tope = np.percentile(suave[suave > 0], percentile)
+        return np.clip(suave / tope, 0, 1)
+
+    def plot_heatmap(self, heatmap, title="Mapa de Calor del Jugador en la Cancha"):
         """
         Plotea un mapa de calor sobre un esquema de cancha con orientación vertical.
 
         heatmap: arreglo 2D del mapa de calor.
+        title: título del mapa de calor.
         """
         cmap = mcolors.LinearSegmentedColormap.from_list('field_cmap', ['green', 'yellow', 'red'])
+
+        # Suavizar y normalizar antes de graficar
+        heatmap = self.normalize_heatmap(heatmap)
 
         # Expandir el heatmap
         scale_factor = 3  # Ajusta este valor para cambiar el tamaño del heatmap
@@ -251,7 +271,7 @@ class Process:
 
         # Mostrar mapa de calor con las líneas de la cancha
         plt.colorbar(label='Densidad de Presencia')
-        plt.title("Mapa de Calor del Jugador en la Cancha")
+        plt.title(title)
         plt.xlabel("Ancho de la cancha (m)")
         plt.ylabel("Largo de la cancha (m)")
         plt.axis('off')  # Opcional: Quita los ejes si no quieres números en los bordes
@@ -345,6 +365,35 @@ class Process:
         x1, y1, x2, y2 = bbox
         bbox_image = frame[y1:y2, x1:x2]
         return bbox_image
+    
+    
+    def get_first_bounding_box_image_coord(self, video_path, tracked_points):
+        """
+        Retorna la primera bounding box como una imagen para un jugador específico en el video.
+
+        video_path: ruta del video
+        tracked_points: lista de diccionarios con datos de tracking
+
+        Retorna:
+            bbox_image: imagen de la bounding box o None si no se encuentra
+        """
+        if not tracked_points:
+            return None
+
+        first_detection = tracked_points[0]
+        bbox = (first_detection["x1"], first_detection["y1"], first_detection["x2"], first_detection["y2"])
+        
+        cap = cv2.VideoCapture(video_path)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, first_detection["frame"])
+        ret, frame = cap.read()
+        cap.release()
+
+        if not ret:
+            return None
+
+        x1, y1, x2, y2 = bbox
+        bbox_image = frame[y1:y2, x1:x2]
+        return bbox_image
 
     def plot_bounding_boxes(self, video_path, tracked_data, player_groups):
         """
@@ -389,4 +438,42 @@ class Process:
 
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+
+    def plot_player_heatmap(self, video_path, players_data, roi_points, player_id):
+        """
+        Plots the heatmap for a specific player using players_data and ROI points.
+
+        video_path: path to the video
+        players_data: list of player data dictionaries
+        roi_points: list of 6 points for calculating the homography
+        player_id: id of the player to plot the heatmap for
+        """
+        # Find the player data for the given player_id
+        player_data = next((player for player in players_data if player["player_id"] == player_id), None)
+        if not player_data:
+            raise ValueError(f"Player with ID {player_id} not found in players_data.")
+
+        # Extract tracked points for the player
+        tracked_points = player_data["tracked_points"]
+
+        # Process tracked data to generate heatmap
+        heatmap, transformed_positions, H = self.process_tracked_data({player_id: tracked_points}, roi_points, player_id)
+
+        # Plot the heatmap
+        self.plot_heatmap(heatmap)
+
+    def plot_team_heatmap(self, video_path, combined_tracked_points, roi_points, team_id):
+        """
+        Plots the heatmap for a specific team using combined tracked points and ROI points.
+
+        video_path: path to the video
+        combined_tracked_points: list of tracked points for the team
+        roi_points: list of 6 points for calculating the homography
+        team_id: id of the team to plot the heatmap for
+        """
+        # Process tracked data to generate heatmap
+        heatmap, transformed_positions, H = self.process_tracked_data({team_id: combined_tracked_points}, roi_points, team_id)
+
+        # Plot the heatmap
+        self.plot_heatmap(heatmap, title=f"Mapa de Calor del Equipo {team_id}")
 
