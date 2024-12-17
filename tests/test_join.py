@@ -15,20 +15,16 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
 
+    path1 = "data/temp/sync/opc1/izquierda_sync.mp4"
+    path2 = "data/temp/sync/opc1/derecha_sync.mp4"
+    # path1 = "data/temp/sync/opc2/left_sync_e.mp4"
+    # path2 = "data/temp/sync/opc2/right_sync.mp4"
+    output_path = "C:/Users/germa/Documents/Facultad/PFC/desarrollo/fulbo/data/temp/23/output3.mp4"
 
-    path1 = "data/temp/izquierda_sync.mp4"
-    path2 = "data/temp/derecha_sync.mp4"
-
-    # path1 = "data/temp/23/left.mp4"
-    # path2 = "data/temp/23/right.mp4"
-
-    output_path="C:/Users/germa/Documents/Facultad/PFC/desarrollo/fulbo/data/temp/23/output3.mp4"
-
-    print("Joining videos...")
-    joiner = JoinVideos(path1, path2, True) #True si es video, False si queremos una foto
-    print("Videos joined.")
-    print("Joining frames...")
-    joiner.join_simple()
+    # Ejecutar el proceso
+    joiner = JoinVideos(path1, path2, output_path)
+    joiner.stitch_videos()
+    print("Video stitching completed successfully!")
     # joined_frames = joiner.join(output_path) #threshold=0.1
     # joiner.reproduce(joined_frames)
     # print(len(joined_frames))
@@ -40,7 +36,7 @@ if __name__ == "__main__":
 
     # Verifica si el archivo se creó correctamente
     # input_video = "data/temp/23/output2.mp4"
-    converted_video = "data/temp/23/output3.mp4"
+    # converted_video = "data/temp/23/output3.mp4"
 
     # convert_video_to_h264(input_video, converted_video, fps=30)
 
@@ -49,9 +45,9 @@ if __name__ == "__main__":
     # fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     # out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
-    stabilizer = VidStab(kp_method='ORB')
-    stabilizer.stabilize(input_path=converted_video, output_path="data/temp/23/stable_video.avi")
-    print("Stabilization complete.")
+    # stabilizer = VidStab(kp_method='ORB')
+    # stabilizer.stabilize(input_path=converted_video, output_path="data/temp/23/stable_video.avi")
+    # print("Stabilization complete.")
 
     # stabilizer.plot_trajectory()
     # plt.show()
