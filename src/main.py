@@ -7,6 +7,10 @@ import time
 import cv2
 from PIL import Image, ImageTk
 from functions.ROI_definer import ROIDefiner
+from functions.YOLO_custom import YOLO_custom
+from functions.Process import Process
+from functions.modules.select_teams import SelectTeams
+from functions.results_window import ResultsWindow
 
 # Sets the appearance of the window
 # Supported modes : Light, Dark, System
@@ -200,8 +204,51 @@ class App(ctk.CTk):
 
 	def processVideo(self):
 		print("Processing video...")
+		model = YOLO_custom("yolo11n.pt", True)
+
+		def progress_callback(current_frame, total_frames):
+			if current_frame == -1:
+				CTkMessagebox(title="Error", message="Tracking failed.", icon="cancel")
+			else:
+				progress = (current_frame / total_frames) * 100
+				# print(f"Progress: {current_frame}/{total_frames} ({progress:.2f}%)")
+				self.progressLabel.configure(text=f"Progreso: {current_frame}/{total_frames} ({progress:.2f}%)")
+				self.update_idletasks()  # Ensure the label is updated
+
+		# Add a progress label
+		self.progressLabel = ctk.CTkLabel(self, text="Progreso: 0%", font=("Arial", 12))
+		self.progressLabel.grid(row=5, column=3, padx=20, pady=10, sticky="ew")
+
+		tracked_data = model.track(self.joinedPath, self.ROIpoints, show_plot=False, progress_callback=progress_callback)
+
+		# Classify players into teams
+		# Update the progress label
+		self.progressLabel.configure(text=f"Clasificando jugadores en equipos...")
+		self.update_idletasks()  # Ensure the label is updated
+		# Select teams
+		select_teams = SelectTeams(self.joinedPath, tracked_data)
+		player_groups = select_teams.classify_players()
+		print("Player groups:", player_groups)
+
+		# Create player data structure
+		players_data = []
+		for track_id, track_info in tracked_data.items():
+			player = {
+				"name": "",
+				"player_id": track_id,
+				"team": player_groups.get(track_id, "Unknown"),
+				"tracked_points": track_info
+			}
+			players_data.append(player)
+
+		# Remove progress label after processing
+		self.progressLabel.grid_forget()
+
 		# Add your video processing code here
-		
+		CTkMessagebox(title="Proceso completado", message="El video ha sido procesado exitosamente.", icon="check")
+
+		# Change the button text
+		self.processButton.configure(text="Ver resultados", command=lambda: ResultsWindow(self, players_data, self.joinedPath, self.ROIpoints))
 
 	def createText(self):
 		checkboxValue = ""

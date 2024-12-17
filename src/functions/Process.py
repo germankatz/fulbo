@@ -125,11 +125,12 @@ class Process:
     
     
     
-    def plot_heatmap(self, heatmap):
+    def plot_heatmap(self, heatmap, title="Mapa de Calor del Jugador en la Cancha"):
         """
         Plotea un mapa de calor sobre un esquema de cancha con orientación vertical.
 
         heatmap: arreglo 2D del mapa de calor.
+        title: título del mapa de calor.
         """
         cmap = mcolors.LinearSegmentedColormap.from_list('field_cmap', ['green', 'yellow', 'red'])
 
@@ -251,7 +252,7 @@ class Process:
 
         # Mostrar mapa de calor con las líneas de la cancha
         plt.colorbar(label='Densidad de Presencia')
-        plt.title("Mapa de Calor del Jugador en la Cancha")
+        plt.title(title)
         plt.xlabel("Ancho de la cancha (m)")
         plt.ylabel("Largo de la cancha (m)")
         plt.axis('off')  # Opcional: Quita los ejes si no quieres números en los bordes
@@ -345,6 +346,35 @@ class Process:
         x1, y1, x2, y2 = bbox
         bbox_image = frame[y1:y2, x1:x2]
         return bbox_image
+    
+    
+    def get_first_bounding_box_image_coord(self, video_path, tracked_points):
+        """
+        Retorna la primera bounding box como una imagen para un jugador específico en el video.
+
+        video_path: ruta del video
+        tracked_points: lista de diccionarios con datos de tracking
+
+        Retorna:
+            bbox_image: imagen de la bounding box o None si no se encuentra
+        """
+        if not tracked_points:
+            return None
+
+        first_detection = tracked_points[0]
+        bbox = (first_detection["x1"], first_detection["y1"], first_detection["x2"], first_detection["y2"])
+        
+        cap = cv2.VideoCapture(video_path)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, first_detection["frame"])
+        ret, frame = cap.read()
+        cap.release()
+
+        if not ret:
+            return None
+
+        x1, y1, x2, y2 = bbox
+        bbox_image = frame[y1:y2, x1:x2]
+        return bbox_image
 
     def plot_bounding_boxes(self, video_path, tracked_data, player_groups):
         """
@@ -389,4 +419,42 @@ class Process:
 
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+
+    def plot_player_heatmap(self, video_path, players_data, roi_points, player_id):
+        """
+        Plots the heatmap for a specific player using players_data and ROI points.
+
+        video_path: path to the video
+        players_data: list of player data dictionaries
+        roi_points: list of 6 points for calculating the homography
+        player_id: id of the player to plot the heatmap for
+        """
+        # Find the player data for the given player_id
+        player_data = next((player for player in players_data if player["player_id"] == player_id), None)
+        if not player_data:
+            raise ValueError(f"Player with ID {player_id} not found in players_data.")
+
+        # Extract tracked points for the player
+        tracked_points = player_data["tracked_points"]
+
+        # Process tracked data to generate heatmap
+        heatmap, transformed_positions, H = self.process_tracked_data({player_id: tracked_points}, roi_points, player_id)
+
+        # Plot the heatmap
+        self.plot_heatmap(heatmap)
+
+    def plot_team_heatmap(self, video_path, combined_tracked_points, roi_points, team_id):
+        """
+        Plots the heatmap for a specific team using combined tracked points and ROI points.
+
+        video_path: path to the video
+        combined_tracked_points: list of tracked points for the team
+        roi_points: list of 6 points for calculating the homography
+        team_id: id of the team to plot the heatmap for
+        """
+        # Process tracked data to generate heatmap
+        heatmap, transformed_positions, H = self.process_tracked_data({team_id: combined_tracked_points}, roi_points, team_id)
+
+        # Plot the heatmap
+        self.plot_heatmap(heatmap, title=f"Mapa de Calor del Equipo {team_id}")
 
